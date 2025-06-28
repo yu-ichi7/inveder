@@ -2,8 +2,10 @@ class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
-        this.canvas.width = 800;
-        this.canvas.height = 600;
+        
+        // スマホ対応のため、ウィンドウサイズに合わせてキャンバスサイズを調整
+        this.resizeCanvas();
+        window.addEventListener('resize', () => this.resizeCanvas());
         
         this.player = {
             x: this.canvas.width / 2,
@@ -18,17 +20,61 @@ class Game {
         this.score = 0;
         this.gameOver = false;
         
+        // キーボード入力
         this.keys = {};
-        
-        // キーイベントの設定
         document.addEventListener('keydown', (e) => this.keys[e.key] = true);
         document.addEventListener('keyup', (e) => this.keys[e.key] = false);
         
-        // 敵の配置
-        this.createEnemies();
+        // タッチ入力
+        document.querySelectorAll('.touch-button').forEach(button => {
+            button.addEventListener('touchstart', () => {
+                if (button.classList.contains('left')) {
+                    this.keys['ArrowLeft'] = true;
+                } else if (button.classList.contains('right')) {
+                    this.keys['ArrowRight'] = true;
+                } else if (button.classList.contains('shoot')) {
+                    this.keys[' '] = true;
+                }
+            });
+            
+            button.addEventListener('touchend', () => {
+                if (button.classList.contains('left')) {
+                    this.keys['ArrowLeft'] = false;
+                } else if (button.classList.contains('right')) {
+                    this.keys['ArrowRight'] = false;
+                } else if (button.classList.contains('shoot')) {
+                    this.keys[' '] = false;
+                }
+            });
+        });
         
-        // ゲームループの開始
+        this.createEnemies();
         this.gameLoop();
+    }
+
+    resizeCanvas() {
+        // キャンバスのサイズをウィンドウサイズに合わせる
+        const container = document.querySelector('.game-container');
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+        
+        // キャンバスのアスペクト比を維持
+        const aspectRatio = 800 / 600;
+        const canvasWidth = Math.min(containerWidth, 800);
+        const canvasHeight = canvasWidth / aspectRatio;
+        
+        this.canvas.width = canvasWidth;
+        this.canvas.height = canvasHeight;
+        
+        // プレイヤーの位置を調整
+        this.player.x = this.canvas.width / 2;
+        this.player.y = this.canvas.height - 30;
+        
+        // 敵の位置を調整
+        this.enemies.forEach(enemy => {
+            enemy.x = enemy.x * (this.canvas.width / 800);
+            enemy.y = enemy.y * (this.canvas.height / 600);
+        });
     }
 
     createEnemies() {
@@ -110,7 +156,6 @@ class Game {
     update() {
         if (this.gameOver) return;
         
-        // プレイヤーの移動
         if (this.keys['ArrowLeft'] && this.player.x > 0) {
             this.player.x -= this.player.speed;
         }
@@ -118,9 +163,8 @@ class Game {
             this.player.x += this.player.speed;
         }
         
-        // ショット
         if (this.keys[' ']) {
-            if (this.bullets.length === 0) { // 弾が0個の時のみ発射
+            if (this.bullets.length === 0) {
                 this.bullets.push({
                     x: this.player.x + this.player.width / 2,
                     y: this.player.y,
@@ -131,13 +175,11 @@ class Game {
             }
             this.keys[' '] = false;
         }
-        
-        // 弾の移動と衝突判定
+
         this.bullets = this.bullets.filter(bullet => {
             bullet.y -= bullet.speed;
             if (bullet.y < 0) return false;
             
-            // 敵との衝突判定
             for (let i = this.enemies.length - 1; i >= 0; i--) {
                 const enemy = this.enemies[i];
                 if (this.checkCollision(bullet, enemy)) {
@@ -148,43 +190,35 @@ class Game {
             }
             return true;
         });
-        
-        // 敵の移動
+
         this.enemies.forEach(enemy => {
             enemy.x += enemy.moveDirection * 2;
             
-            // 敵が端に到達した場合
             if (enemy.x <= 0 || enemy.x + enemy.width >= this.canvas.width) {
                 enemy.moveDirection *= -1;
                 enemy.y += 20;
             }
         });
-        
-        // ゲームオーバー判定
+
         if (this.enemies.some(enemy => enemy.y + enemy.height >= this.canvas.height)) {
             this.gameOver = true;
         }
     }
 
     draw() {
-        // 背景色のクリア
         this.ctx.fillStyle = '#000';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // プレイヤーの描画
         this.ctx.fillStyle = '#00ff00';
         this.ctx.fillRect(this.player.x, this.player.y, this.player.width, this.player.height);
         
-        // 弾の描画
         this.ctx.fillStyle = '#fff';
         this.bullets.forEach(bullet => {
             this.ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
         });
-        
-        // 敵の描画
+
         this.ctx.fillStyle = '#ff0000';
         this.enemies.forEach(enemy => {
-            // ドット絵の描画
             const dotSize = 5;
             enemy.type.forEach((row, y) => {
                 row.forEach((pixel, x) => {
@@ -195,11 +229,9 @@ class Game {
                 });
             });
         });
-        
-        // スコアの更新
+
         document.getElementById('score').textContent = this.score;
         
-        // ゲームオーバー表示
         if (this.gameOver) {
             this.ctx.fillStyle = '#fff';
             this.ctx.font = '40px Arial';
@@ -222,5 +254,4 @@ class Game {
     }
 }
 
-// ゲームの開始
 new Game();
